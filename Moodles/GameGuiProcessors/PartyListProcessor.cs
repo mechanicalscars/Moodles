@@ -1,6 +1,8 @@
 ﻿using Dalamud.Game.Addon.Lifecycle;
 using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
 using FFXIVClientStructs.FFXIV.Client.Game.Character;
+using FFXIVClientStructs.FFXIV.Client.Game.Object;
+using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.FFXIV.Client.UI.Arrays;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using Moodles.Data;
@@ -203,31 +205,43 @@ public unsafe class PartyListProcessor : IDisposable
 
     public nint[] GetVisibleParty()
     {
-        nint[] partyAddresses = [0, 0, 0, 0, 0, 0, 0, 0];
+        nint[] partyAddresses = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
         
-        for (int i = 0; i < PartyListNumberArray.Instance()->PartyListCount; i++)
+        AgentHUD* agentHud = AgentHUD.Instance();
+        
+        if (agentHud == null)
         {
-            // Its actually entityId, I PR´d a fix to ClientStructs already.
-            uint entityId = (uint)PartyListNumberArray.Instance()->PartyMembers[i].ContentId;
+            PluginLog.Error("AgentHUD is somehow null, this is quite bad.");
             
-            nint address = nint.Zero;
+            return partyAddresses;
+        }
+
+        int partySize = agentHud->PartyMemberCount;
+        
+        for (int i = 0; i < partySize; i++)
+        {
+            HudPartyMember partyMember = agentHud->PartyMembers[i];
+            BattleChara*   partyChara  = partyMember.Object;
             
-            foreach (BattleChara* bChara in CharacterManager.Instance()->BattleCharas)
+            if (partyChara == null)
             {
-                if (bChara == null)
-                {
-                    continue;
-                }
-                
-                if (bChara->EntityId != entityId)
-                {
-                    continue;
-                }
-                
-                address = (nint)bChara;
+                continue;
             }
             
-            partyAddresses[i] = address;
+            // == 4 means "is player"
+            if (partyChara->BattleNpcSubKind != BattleNpcSubKind.NpcPartyMember && (byte)partyChara->BattleNpcSubKind != 4)
+            {
+                continue;
+            }
+            
+            byte index = partyMember.Index;
+            
+            if (index >= partyAddresses.Length || index >= partySize)
+            {
+                continue;
+            }
+            
+            partyAddresses[index] = (nint)partyChara;
         }
         
         return partyAddresses;
