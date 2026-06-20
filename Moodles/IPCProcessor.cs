@@ -301,26 +301,9 @@ public class IPCProcessor : IDisposable
     /// </summary>
     private unsafe void AddOrUpdateMoodleInternal(nint charaAddr, Guid guid)
     {
-        MarkSynced(charaAddr);
-        Character* chara = (Character*)charaAddr;
-        if (chara == null)
-        {
-            PluginLog.LogWarning("[IPC] AddOrUpdate Moodle Chara is NULL");
-            return;
-        }
-        if (!C.AllowRemoteApply)
-        {
-            PluginLog.LogWarning("[IPC] received apply request but remote apply is not enabled.");
-            return;
-        }
         if (C.SavedStatuses.TryGetFirst(x => x.GUID == guid, out var status))
         {
-            var sm = chara->MyStatusManager();
-            if (!sm.Ephemeral)
-            {
-                PluginLog.LogDebug($"Adding or Updating Moodle {status.Title} to {chara->GetNameWithWorld()}");
-                sm.AddOrUpdate(status.PrepareToApply(), UpdateSource.StatusTuple, false, true);
-            }
+            AddOrUpdateMoodleInternal(charaAddr, status);
         }
     }
     
@@ -348,6 +331,12 @@ public class IPCProcessor : IDisposable
     /// </summary>
     private unsafe void AddOrUpdateMoodleInternal(nint charaAddr, MoodlesStatusInfo data)
     {
+        var status = MyStatus.FromTuple(data);
+        AddOrUpdateMoodleInternal(charaAddr, status);
+    }
+
+    private unsafe void AddOrUpdateMoodleInternal(nint charaAddr, MyStatus status)
+    {
         MarkSynced(charaAddr);
         Character* chara = (Character*)charaAddr;
         if (chara == null)
@@ -362,16 +351,16 @@ public class IPCProcessor : IDisposable
             return;
         }
 
-        var status = MyStatus.FromTuple(data);
         if (!Utils.CheckWhitelistGlobal(status))
         {
             PluginLog.LogWarning($"[IPC] received apply request from {status.Applier} but failed whitelist check.");
             return;
         }
+
         var sm = chara->MyStatusManager();
         if (!sm.Ephemeral)
         {
-            PluginLog.LogDebug($"Adding or Updating remote Moodles : {data.Title}");
+            PluginLog.LogDebug($"Adding or Updating Remote Moodle {status.Title} to {chara->GetNameWithWorld()}");
             sm.AddOrUpdate(status.PrepareToApply(), UpdateSource.StatusTuple, false, true);
         }
     }
