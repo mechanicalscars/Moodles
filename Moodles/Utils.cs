@@ -57,6 +57,12 @@ public static unsafe partial class Utils
     public static bool CheckWhitelistGlobal(MyStatus status)
     {
         if(C.BroadcastAllowAll) return true;
+        
+        // If you apply a moodle to yourself via local plugins, it should continue through;
+        // Note that this adds an extra security hole in that any plugin can just say they're you.
+        // But that would be a problem is Party Permissions was on too, since you are always a member of you own party.
+        if (status.Applier == LocalPlayer.NameWithWorld) return true;
+
         bool permission = false;
         if(C.BroadcastAllowParty) permission = permission || UniversalParty.Members.Any(x => x.NameWithWorld == status.Applier);
         if(C.BroadcastAllowFriends) permission = permission || GetFriendlist().Contains(status.Applier);
